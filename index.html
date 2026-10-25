@@ -119,6 +119,7 @@ section{margin-top:56px}
 .tabela tr.sel td{background:rgba(0,0,0,.06)}
 .tabela tbody tr{cursor:pointer}
 .tabela tbody tr:hover td{background:rgba(0,0,0,.04)}
+.rk{display:inline-block;width:28px;color:var(--ink-2);font-weight:400}
 .mini{display:flex;height:8px;min-width:120px;background:var(--paper-2)}
 .mini i{display:block;height:100%}
 .mini .l{background:var(--lula)} .mini .f{background:var(--flavio)}
@@ -200,12 +201,12 @@ footer{margin-top:60px;padding-top:14px;border-top:3px double var(--ink);font:40
   </section>
 
   <section>
-    <div class="sec-h"><h2>Todos os estados <em>— números completos</em></h2><span>clique no cabeçalho para ordenar</span></div>
+    <div class="sec-h"><h2>Todos os estados <em>— números completos</em></h2><span>ranking por margem (L = Lula, F = Flávio) · clique no cabeçalho para reordenar</span></div>
     <div class="scroll">
     <table class="tabela">
       <thead><tr>
-        <th data-k="uf">UF</th><th data-k="nome">Estado</th>
-        <th data-k="l">Lula %</th><th data-k="f">Flávio %</th><th style="cursor:default">Disputa</th>
+        <th data-k="uf"># UF</th><th data-k="nome">Estado</th>
+        <th data-k="l">Lula %</th><th data-k="f">Flávio %</th><th data-k="m">Margem</th><th style="cursor:default">Disputa</th>
         <th data-k="lv">Votos Lula</th><th data-k="fv">Votos Flávio</th><th data-k="ap">Apurado</th>
       </tr></thead>
       <tbody id="tb"></tbody>
@@ -237,7 +238,7 @@ const fmt = n => n.toLocaleString('pt-BR');
 const pct = (n,d=2) => n.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const num = s => parseFloat(String(s ?? '0').replace(',','.')) || 0;
 
-let dados = {}, anterior = null, sortK = 'nome', sortAsc = true, sel = null, restante = INTERVALO, carregando = false, usaProxy = false;
+let dados = {}, anterior = null, sortK = 'm', sortAsc = false, sel = null, restante = INTERVALO, carregando = false, usaProxy = false;
 
 async function pegar(uf){
   const rel = `${uf}/${uf}-c0001-e006258-u.json`;
@@ -332,12 +333,14 @@ function renderEstados(){
 }
 
 function renderTabela(lista){
-  const val = (u)=>{ const d=dados[u]; return {uf:u,nome:UFS[u][0],l:d.l,f:d.f,lv:d.lv,fv:d.fv,ap:d.ap}; };
+  const val = (u)=>{ const d=dados[u]; return {uf:u,nome:UFS[u][0],l:d.l,f:d.f,lv:d.lv,fv:d.fv,ap:d.ap,m:d.l-d.f}; };
+  const rank = {}; lista.map(val).sort((a,b)=>b.m-a.m).forEach((r,i)=>rank[r.uf]=i+1); // 1 = mais pró-Lula
   const rows = lista.map(val).sort((a,b)=>{ const x=a[sortK],y=b[sortK]; const c = typeof x==='string'?x.localeCompare(y,'pt-BR'):x-y; return sortAsc?c:-c; });
   $('tb').innerHTML = rows.map(r=>{
     const w = lider(dados[r.uf]);
-    return `<tr data-uf="${r.uf}" class="${sel===r.uf?'sel':''}"><td>${sigla(r.uf)}</td><td>${r.nome}</td>
+    return `<tr data-uf="${r.uf}" class="${sel===r.uf?'sel':''}"><td><span class="rk">${rank[r.uf]}</span>${sigla(r.uf)}</td><td>${r.nome}</td>
       <td class="${w==='l'?'win-l':''}">${pct(r.l)}%</td><td class="${w==='f'?'win-f':''}">${pct(r.f)}%</td>
+      <td class="${w==='l'?'win-l':'win-f'}">${r.m>=0?'+':'−'}${pct(Math.abs(r.m),1)} ${r.m>=0?'L':'F'}</td>
       <td><div class="mini"><i class="l" style="width:${r.l}%"></i><i class="f" style="width:${r.f}%"></i></div></td>
       <td>${fmt(r.lv)}</td><td>${fmt(r.fv)}</td><td>${pct(r.ap,1)}%</td></tr>`;
   }).join('');
