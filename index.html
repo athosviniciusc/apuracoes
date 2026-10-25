@@ -119,6 +119,11 @@ section{margin-top:56px}
 .tabela tr.sel td{background:rgba(0,0,0,.06)}
 .tabela tbody tr{cursor:pointer}
 .tabela tbody tr:hover td{background:rgba(0,0,0,.04)}
+:root{--ok:#1b8a4a}
+.t.done{box-shadow:inset 0 0 0 3px var(--ok)}
+.t.done::before{content:"✓";position:absolute;top:4px;right:4px;width:15px;height:15px;border-radius:50%;background:var(--ok);color:#fff;font:700 10px/15px var(--sans);text-align:center}
+.ok{color:var(--ok)!important;font-weight:700}
+.prog i.ok-bar{background:var(--ok)}
 .rk{display:inline-block;width:28px;color:var(--ink-2);font-weight:400}
 .mini{display:flex;height:8px;min-width:120px;background:var(--paper-2)}
 .mini i{display:block;height:100%}
@@ -201,7 +206,7 @@ footer{margin-top:60px;padding-top:14px;border-top:3px double var(--ink);font:40
   </section>
 
   <section>
-    <div class="sec-h"><h2>Todos os estados <em>— números completos</em></h2><span>ranking por margem (L = Lula, F = Flávio) · clique no cabeçalho para reordenar</span></div>
+    <div class="sec-h"><h2>Todos os estados <em>— números completos</em></h2><span>ranking por % apurado (L = Lula, F = Flávio) · clique no cabeçalho para reordenar</span></div>
     <div class="scroll">
     <table class="tabela">
       <thead><tr>
@@ -232,13 +237,14 @@ const UFS = {
   sp:['São Paulo',3,4],se:['Sergipe',7,3],to:['Tocantins',4,2],
   zz:['Exterior',7,6]
 };
+const completo = d => d.ap >= 99.995;
 const sigla = u => u==='zz' ? 'EXT' : u.toUpperCase();
 const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString('pt-BR');
 const pct = (n,d=2) => n.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const num = s => parseFloat(String(s ?? '0').replace(',','.')) || 0;
 
-let dados = {}, anterior = null, sortK = 'm', sortAsc = false, sel = null, restante = INTERVALO, carregando = false, usaProxy = false;
+let dados = {}, anterior = null, sortK = 'ap', sortAsc = false, sel = null, restante = INTERVALO, carregando = false, usaProxy = false;
 
 async function pegar(uf){
   const rel = `${uf}/${uf}-c0001-e006258-u.json`;
@@ -293,6 +299,7 @@ function render(){
   $('lead').textContent = b.lv===b.fv ? 'empate' : (b.lv>b.fv ? 'Lula lidera' : 'Flávio lidera');
   $('dif').textContent = fmt(dif);
   $('sPct').textContent = pct(b.ap)+'%'; $('sBar').style.width = b.ap+'%';
+  $('sPct').classList.toggle('ok', completo(b)); $('sBar').classList.toggle('ok-bar', completo(b));
   $('vValidos').textContent = fmt(b.validos); $('vBN').textContent = fmt(b.brancos+b.nulos);
   document.title = `Lula ${pct(b.l,1)}% × Flávio ${pct(b.f,1)}% · ${pct(b.ap,1)}% apurado`;
   renderEstados();
@@ -315,7 +322,7 @@ function renderEstados(){
   lista.forEach(u=>{
     const d = dados[u], w = lider(d), t = mapa.querySelector(`[data-uf=${u}]`);
     const margem = Math.abs(d.l-d.f);
-    t.className = 't' + (w?'':' none') + (d.ap<100&&d.ap>0?' part':'') + (sel===u?' sel':'');
+    t.className = 't' + (w?'':' none') + (completo(d)?' done':(d.ap>0?' part':'')) + (sel===u?' sel':'');
     if(w){ const base = w==='l'?[179,38,30]:[29,79,145]; const k = Math.min(1, .55+margem/60); // margem maior = mais intenso
       t.style.background = `color-mix(in srgb, rgb(${base}) ${Math.round(k*100)}%, #f1ebde)`; } else t.style.background='';
     t.innerHTML = `${sigla(u)}<small>${w?pct(Math.max(d.l,d.f),0)+'%':'—'}</small>`;
@@ -324,7 +331,7 @@ function renderEstados(){
   });
   $('nL').textContent = nl; $('nF').textContent = nf;
   $('resumoUF').textContent = `${nl+nf} de ${lista.length} (27 UFs + exterior) com votos`;
-  const li = (u,c)=>`<li data-uf="${u}"><span class="uf">${sigla(u)}</span><span class="nm">${UFS[u][0]}<small>${pct(dados[u].ap,1)}% apurado</small></span><span class="p">${pct(dados[u][c])}%<small>${pct(Math.abs(dados[u].l-dados[u].f),1)} p.p.</small></span></li>`;
+  const li = (u,c)=>`<li data-uf="${u}"><span class="uf">${sigla(u)}</span><span class="nm">${UFS[u][0]}<small class="${completo(dados[u])?'ok':''}">${completo(dados[u])?'✓ 100% apurado':pct(dados[u].ap,1)+'% apurado'}</small></span><span class="p">${pct(dados[u][c])}%<small>${pct(Math.abs(dados[u].l-dados[u].f),1)} p.p.</small></span></li>`;
   const ordem = (a,b)=>Math.abs(dados[b].l-dados[b].f)-Math.abs(dados[a].l-dados[a].f);
   $('listL').innerHTML = L.sort(ordem).map(u=>li(u,'l')).join('') || '<div class="vazio">Nenhum estado até agora.</div>';
   $('listF').innerHTML = F.sort(ordem).map(u=>li(u,'f')).join('') || '<div class="vazio">Nenhum estado até agora.</div>';
@@ -334,15 +341,17 @@ function renderEstados(){
 
 function renderTabela(lista){
   const val = (u)=>{ const d=dados[u]; return {uf:u,nome:UFS[u][0],l:d.l,f:d.f,lv:d.lv,fv:d.fv,ap:d.ap,m:d.l-d.f}; };
-  const rank = {}; lista.map(val).sort((a,b)=>b.m-a.m).forEach((r,i)=>rank[r.uf]=i+1); // 1 = mais pró-Lula
-  const rows = lista.map(val).sort((a,b)=>{ const x=a[sortK],y=b[sortK]; const c = typeof x==='string'?x.localeCompare(y,'pt-BR'):x-y; return sortAsc?c:-c; });
+  const rank = {}; lista.map(val).sort((a,b)=>(completo(dados[a.uf])-completo(dados[b.uf])) || b.ap-a.ap || Math.abs(b.m)-Math.abs(a.m)).forEach((r,i)=>rank[r.uf]=i+1); // 1 = mais apurado em andamento; 100% vai pro fim
+  const rows = lista.map(val).sort((a,b)=>{
+    if(sortK==='ap'){ const ca=completo(dados[a.uf]), cb=completo(dados[b.uf]); if(ca!==cb) return ca?1:-1; if(a.ap===b.ap) return sortAsc ? rank[b.uf]-rank[a.uf] : rank[a.uf]-rank[b.uf]; } // 100% apurado desce pro final; empate segue o rank
+    const x=a[sortK],y=b[sortK]; const c = typeof x==='string'?x.localeCompare(y,'pt-BR'):x-y; return sortAsc?c:-c; });
   $('tb').innerHTML = rows.map(r=>{
     const w = lider(dados[r.uf]);
     return `<tr data-uf="${r.uf}" class="${sel===r.uf?'sel':''}"><td><span class="rk">${rank[r.uf]}</span>${sigla(r.uf)}</td><td>${r.nome}</td>
       <td class="${w==='l'?'win-l':''}">${pct(r.l)}%</td><td class="${w==='f'?'win-f':''}">${pct(r.f)}%</td>
       <td class="${w==='l'?'win-l':'win-f'}">${r.m>=0?'+':'−'}${pct(Math.abs(r.m),1)} ${r.m>=0?'L':'F'}</td>
       <td><div class="mini"><i class="l" style="width:${r.l}%"></i><i class="f" style="width:${r.f}%"></i></div></td>
-      <td>${fmt(r.lv)}</td><td>${fmt(r.fv)}</td><td>${pct(r.ap,1)}%</td></tr>`;
+      <td>${fmt(r.lv)}</td><td>${fmt(r.fv)}</td><td class="${completo(dados[r.uf])?'ok':''}"><b>${completo(dados[r.uf])?'✓ 100%':pct(r.ap,1)+'%'}</b></td></tr>`;
   }).join('');
   document.querySelectorAll('#tb tr').forEach(el=>el.onclick=()=>seleciona(el.dataset.uf));
   document.querySelectorAll('.tabela th[data-k]').forEach(th=>th.classList.toggle('on', th.dataset.k===sortK));
