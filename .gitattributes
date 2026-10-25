@@ -1,0 +1,2 @@
+# Preserva bytes exatos dos dados (hash encadeado depende disso)
+data/** -text
